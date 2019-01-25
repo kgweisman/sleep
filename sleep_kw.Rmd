@@ -85,8 +85,8 @@ d0 <- d_raw %>%
                                      "4" = "every day"),
          slep_ordn14 = recode_factor(slep_ordn14,
                                      "0" = "no", "1" = "a little", "2" = "a lot"),
-         slep_ctry = recode_factor(slep_ctry, "1" = "US", "3" = "Ghana", 
-                                   "2" = "Thailand", "4" = "China", 
+         slep_ctry = recode_factor(slep_ctry, "1" = "US", "4" = "Ghana", 
+                                   "3" = "Thailand", "2" = "China", 
                                    "5" = "Vanuatu"),
          slep_demo_sex = recode_factor(slep_demo_sex, "1" = "m", "2" = "f"),
          slep_demo_ubru = recode_factor(slep_demo_ubru, "1" = "urban", "2" = "rural"),
@@ -142,7 +142,7 @@ d %>%
   spread(slep_demo_sex, prop)
 ```
 
-A couple of things to note here: A substantial majority of participants in Ghana were female, and this also appears to be true in Thailand and Vanuatu (where an unusual number of participants are missing gender/sex info).
+A couple of things to note here: A substantial majority of participants in Thailand were female, and this also appears to be true in China and Vanuatu (where an unusual number of participants are missing gender/sex info).
 
 ```{r, include = T}
 d0 %>%
