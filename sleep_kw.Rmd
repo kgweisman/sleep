@@ -250,7 +250,7 @@ d %>%
 
 ## 4. If yes, who sleeps with you in the bed? Please circle the person(s) from the list (`slep_ordn04`)
 
-```{r, fig.width = 5, include = T}
+```{r, fig.width = 5, fig.asp = 0.5, include = T}
 d %>%
   mutate(slep_ordn04 = case_when(grepl(",", slep_ordn04) ~
                                    "multiple answers selected",
@@ -301,7 +301,7 @@ d %>%
 
 ## 6. If yes, who else sleeps in the same room with you? Please circle the person(s) from the list (`slep_ordn06`)
 
-```{r, fig.width = 5, include = T}
+```{r, fig.width = 5, fig.asp = 0.5, include = T}
 d %>%
   mutate(slep_ordn06 = case_when(grepl(",", slep_ordn06) ~
                                    "multiple answers selected",
@@ -328,7 +328,7 @@ d %>%
 
 ## 7. What does your family use to see at night? (`slep_ordn07`)
 
-```{r, fig.width = 5, include = T}
+```{r, fig.width = 5, fig.asp = 0.5, include = T}
 d %>%
   mutate(slep_ordn07 = case_when(grepl(",", slep_ordn07) ~ 
                                    "multiple answers selected",
