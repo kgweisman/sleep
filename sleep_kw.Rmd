@@ -1,0 +1,555 @@
+---
+title: "Sleep (KW first pass)"
+subtitle: "Last updated: 2019-01-25"
+output:
+  html_notebook:
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+always_allow_html: yes
+---
+
+This is Kara's first pass at looking at the Sleep data (with data from 2019-01-24).
+
+```{r global_options, include = F}
+knitr::opts_chunk$set(fig.width = 4, fig.asp = 0.67,
+                      include = F, echo = F)
+```
+
+```{r}
+library(tidyverse)
+library(langcog)
+library(psych)
+library(readxl)
+library(cowplot)
+library(lme4)
+library(lmerTest)
+library(kableExtra)
+library(lubridate)
+
+theme_set(theme_bw())
+```
+
+```{r}
+d_raw <- read_csv("../COMPLETE_use for analysis_Sleep_Jan.24.2019.csv")
+```
+
+```{r}
+d0 <- d_raw %>%
+  mutate_at(vars(slep_ordn11, slep_ordn12a, slep_ordn19a, slep_edge_total, 
+                 slep_demo_age, slep_demo_ses, slep_demo_howr), 
+            funs(as.numeric)) %>%
+  mutate_at(vars(slep_ordn03, slep_ordn05, slep_ordn08, slep_ordn16),
+            funs(recode_factor(., "0" = "no", "1" = "yes"))) %>%
+  mutate_at(vars(slep_ordn04, slep_ordn06),
+            funs(recode_factor(., "0" = "nobody", "1" = "spouse", "2" = "sister", 
+                               "3" = "brother", "4" = "daughter", "5" = "son",
+                               "6" = "mother", "7" = "father", "8" = "grandparent", 
+                               "9" = "grandchild", "10" = "other relative", 
+                               "11" = "non-relative"))) %>%
+  mutate_at(vars(slep_ordn11_worldofspirits, slep_ordn13_deepself,
+                 slep_ordn13_mindoff, slep_ordn13_replenish,
+                 slep_ordn23_Physiological, slep_ordn23_Psychological,
+                 slep_ordn23_Dreams, slep_ordn23_Sound,
+                 slep_ordn23_supernaturalprayer),
+            funs(factor(ifelse(. == "1" || is.na(.), "yes", "no"),
+                        levels = c("no", "yes")))) %>%
+  mutate_at(vars(slep_ordn15, slep_ordn17, slep_ordn18, slep_ordn20:slep_ordn22),
+            funs(recode_factor(., "0" = "never", "1" = "rarely", 
+                               "2" = "sometimes", "3" = "often"))) %>%
+  mutate_at(vars(starts_with("slep_edge")),
+            funs(recode_factor(., "0" = "never", "1" = "rarely", 
+                               "2" = "occasionally", "3" = "frequently"))) %>%
+  mutate(slep_ordn01 = recode_factor(slep_ordn01, 
+                                     "1" = "own bedroom", 
+                                     "2" = "bedroom shared with others",
+                                     "3" = "common room (living plus sleeping)",
+                                     "4" = "porch/outside",
+                                     "5" = "not in home",
+                                     "6" = "variable"),
+         slep_ordn02 = recode_factor(slep_ordn02,
+                                     "1" = "bed", "2" = "sofa, divan", 
+                                     "3" = "mat, ground", "4" = "hammock"),
+         slep_ordn07 = recode_factor(slep_ordn07,
+                                     "0" = "nothing, just the moon and stars",
+                                     "1" = "light from the cooking fire or hearth",
+                                     "2" = "candles or straw torches", 
+                                     "3" = "oil or kerosene lamp",
+                                     "4" = "battery-driven lamp or flashlight", 
+                                     "5" = "electric light"),
+         slep_ordn09 = recode_factor(slep_ordn09,
+                                     "0" = "NA (never)", "1" = "rarely",
+                                     "2" = "sometimes (1-2 times a week)", 
+                                     "3" = "usually but not everyday (3-6 times a week)", 
+                                     "4" = "every day"),
+         slep_ordn14 = recode_factor(slep_ordn14,
+                                     "0" = "no", "1" = "a little", "2" = "a lot"),
+         slep_ctry = recode_factor(slep_ctry, "1" = "US", "3" = "Ghana", 
+                                   "2" = "Thailand", "4" = "China", 
+                                   "5" = "Vanuatu"),
+         slep_demo_sex = recode_factor(slep_demo_sex, "1" = "m", "2" = "f"),
+         slep_demo_ubru = recode_factor(slep_demo_ubru, "1" = "urban", "2" = "rural"),
+         slep_demo_affr = recode_factor(slep_demo_affr, "1" = "no", "0" = "yes"),
+         slep_demo_tung = recode_factor(slep_demo_tung, "0" = "no", "1" = "yes")) %>%
+  select(-c(slep_entr:slep_batc, slep_file:slep_whoc)) %>%
+  distinct()
+```
+
+```{r}
+# deal with sleeping & waking times
+# not quite perfect!!
+d1 <- d0 %>%
+  mutate_at(vars(`slep_ordn10a#1_1_1`, `slep_ordn10a#1_2_1`),
+            funs(gsub("^0\\:", "12\\:", .))) %>%
+  mutate(slep_datesleep = ifelse(`slep_ordn10a#2_1` == "PM", 
+                                 as.character(today()), as.character(today() + 1)),
+         slep_datewake = as.character(today() + 1),
+         slep_datetimesleep = paste(slep_datesleep, 
+                                    `slep_ordn10a#1_1_1`, `slep_ordn10a#2_1`),
+         slep_datetimewake = paste(slep_datewake,
+                                   `slep_ordn10a#1_2_1`, `slep_ordn10a#2_2`)) %>%
+  mutate_at(vars(slep_datetimesleep, slep_datetimewake),
+            funs(ifelse(grepl("MD", .), NA, .))) %>%
+  mutate_at(vars(slep_datetimesleep, slep_datetimewake),
+            funs(parse_datetime(., format = "%Y-%m-%d %I:%M %p"))) %>%
+  mutate(slep_interval = interval(slep_datetimesleep, slep_datetimewake),
+         slep_duration = as.duration(slep_interval),
+         slep_duration_num = as.numeric(slep_duration, "hours"))
+```
+
+```{r}
+d <- d1
+```
+
+
+# Demographics
+
+```{r, include = T}
+d %>%
+  distinct(slep_ctry, slep_subj) %>%
+  count(slep_ctry)
+```
+
+```{r, include = T}
+d %>%
+  distinct(slep_ctry, slep_subj, slep_demo_sex) %>%
+  group_by(slep_ctry) %>%
+  count(slep_demo_sex) %>%
+  mutate(prop = round(n/sum(n), 2)) %>%
+  ungroup() %>%
+  select(-n) %>%
+  spread(slep_demo_sex, prop)
+```
+
+A couple of things to note here: A substantial majority of participants in Ghana were female, and this also appears to be true in Thailand and Vanuatu (where an unusual number of participants are missing gender/sex info).
+
+```{r, include = T}
+d0 %>%
+  distinct(slep_ctry, slep_subj, slep_demo_age) %>%
+  group_by(slep_ctry) %>%
+  summarise(median = median(slep_demo_age, na.rm = T),
+            mean = mean(slep_demo_age, na.rm = T),
+            sd = sd(slep_demo_age, na.rm = T),
+            min = min(slep_demo_age, na.rm = T),
+            max = max(slep_demo_age, na.rm = T)) %>%
+  mutate_at(vars(median, mean, sd, min, max), funs(round(., 2)))
+```
+
+
+<P style="page-break-before: always">
+# Individual questions
+
+## 1. Where do you usually sleep at night? (`slep_ordn01`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn01 = case_when(grepl(",", slep_ordn01) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn01)),
+         slep_ordn01 = factor(slep_ordn01,
+                              levels = c("own bedroom", 
+                                         "bedroom shared with others", 
+                                         "common room (living plus sleeping)", 
+                                         "porch/outside", "not in home", 
+                                         "variable", 
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn01) %>%
+  complete(slep_ordn01, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn01, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "1. Where do you usually sleep at night? (`slep_ordn01`)", 
+       x = "Response", y = "Proportion of participants")
+```
+
+
+## 2. What do you usually sleep on at night? (`slep_ordn02`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn02 = case_when(grepl(",", slep_ordn02) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn02)),
+         slep_ordn02 = factor(slep_ordn02,
+                              levels = c("bed", 
+                                         "sofa, divan", 
+                                         "mat, ground", 
+                                         "hammock", 
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn02) %>%
+  complete(slep_ordn02, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn02, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "2. What do you usually sleep on at night? (`slep_ordn02`)", 
+       x = "Response", y = "Proportion of participants")
+```
+
+
+## 3. Does anyone else sleep in the same bed (or mat, hammock, etc.) with you? (`slep_ordn03`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn03 = case_when(grepl(",", slep_ordn03) ~
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn03)),
+         slep_ordn03 = factor(slep_ordn03,
+                              levels = c("yes", "no",
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn03) %>%
+  complete(slep_ordn03, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn03, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "3. Does anyone else sleep in the same bed (or mat, hammock, etc.) with you?\n(`slep_ordn03`)", 
+       x = "Response", y = "Proportion of participants")
+```
+
+
+## 4. If yes, who sleeps with you in the bed? Please circle the person(s) from the list (`slep_ordn04`)
+
+```{r, fig.width = 5, include = T}
+d %>%
+  mutate(slep_ordn04 = case_when(grepl(",", slep_ordn04) ~
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn04)),
+         slep_ordn04 = factor(slep_ordn04,
+                              levels = c("nobody", "spouse", "sister", "brother",
+                                         "daughter", "son", "mother", "father",
+                                         "grandparent", "grandchild", 
+                                         "other relative", "non-relative",
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn04) %>%
+  complete(slep_ordn04, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn04, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "4. If yes, who sleeps with you in the bed? Please circle the person(s) from the list (`slep_ordn04`)", 
+       x = "Response", y = "Proportion of participants")
+```
+
+
+## 5. Besides anyone who shares the bed with you, does someone else sleep in the same room with you? (`slep_ordn05`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn05 = case_when(grepl(",", slep_ordn05) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn05)),
+         slep_ordn05 = factor(slep_ordn05,
+                              levels = c("no", "yes", 
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn05) %>%
+  complete(slep_ordn05, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn05, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "5. Besides anyone who shares the bed with you, does someone else sleep in the same\nroom with you? (`slep_ordn05`)", 
+       x = "Response", y = "Proportion of participants")
+```
+
+
+## 6. If yes, who else sleeps in the same room with you? Please circle the person(s) from the list (`slep_ordn06`)
+
+```{r, fig.width = 5, include = T}
+d %>%
+  mutate(slep_ordn06 = case_when(grepl(",", slep_ordn06) ~
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn06)),
+         slep_ordn06 = factor(slep_ordn06,
+                              levels = c("nobody", "spouse", "sister", "brother",
+                                         "daughter", "son", "mother", "father",
+                                         "grandparent", "grandchild", 
+                                         "other relative", "non-relative",
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn06) %>%
+  complete(slep_ordn06, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn06, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "6. If yes, who else sleeps in the same room with you? Please circle the person(s) from the list (`slep_ordn06`)", 
+       x = "Response", y = "Proportion of participants")
+```
+
+
+## 7. What does your family use to see at night? (`slep_ordn07`)
+
+```{r, fig.width = 5, include = T}
+d %>%
+  mutate(slep_ordn07 = case_when(grepl(",", slep_ordn07) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn07)),
+         slep_ordn07 = factor(slep_ordn07,
+                              levels = c("nothing, just the moon and stars",
+                                         "light from the cooking fire or hearth",
+                                         "candles or straw torches",
+                                         "oil or kerosene lamp", 
+                                         "battery-driven lamp or flashlight", 
+                                         "electric light", 
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn07) %>%
+  complete(slep_ordn07, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn07, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "7. What does your family use to see at night? (`slep_ordn07`)", 
+       x = "Response", y = "Proportion of participants")
+```
+
+
+## 8. Do you usually take naps? (`slep_ordn08`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn08 = case_when(grepl(",", slep_ordn08) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn08)),
+         slep_ordn08 = factor(slep_ordn08,
+                              levels = c("no", "yes", 
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn08) %>%
+  complete(slep_ordn08, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn08, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "8. Do you usually take naps? (`slep_ordn08`)", 
+       x = "Response", y = "Proportion of participants")
+```
+
+
+## 9. If so, how often do you rest or nap? (`slep_ordn09`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn09 = case_when(grepl(",", slep_ordn09) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn09)),
+         slep_ordn09 = factor(slep_ordn09,
+                              levels = c("NA (never)", "rarely",
+                                         "sometimes (1-2 times a week)",
+                                         "usually but not everyday (3-6 times a week)",
+                                         "every day",
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn09) %>%
+  complete(slep_ordn09, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn09, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "9. If so, how often do you rest or nap? (`slep_ordn09`)", 
+       x = "Response", y = "Proportion of participants")
+```
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_subj, slep_ctry, slep_ordn09) %>%
+  filter(slep_ordn09 != ".") %>%
+  ggplot(aes(x = slep_ctry, y = slep_ordn09, color = slep_ctry)) +
+  geom_jitter(alpha = 0.25, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% 
+                    group_by(slep_ctry) %>%
+                    mutate(slep_ordn09 = as.numeric(slep_ordn09)) %>%
+                    multi_boot_standard(col = "slep_ordn09") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
+                  color = "black") +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "9. If so, how often do you rest or nap? (`slep_ordn09`)",
+       subtitle = "Error bars are 95% bootstrapped confidence intervals",
+       x = "Site", y = "Response")
+```
+
+## 10. When do you typically fall asleep every night and wake up every night? (`slep_ordn10`)
+
+```{r, fig.width = 5, include = T}
+d %>%
+  distinct(slep_ctry, slep_subj, slep_datetimesleep, slep_datetimewake) %>%
+  mutate_at(vars(slep_datetimesleep, slep_datetimewake),
+            funs(as.character)) %>%
+  gather(sleepwake, time, -c(slep_ctry, slep_subj)) %>%
+  mutate(time = parse_datetime(time),
+         sleepwake = factor(sleepwake,
+                            levels = c("slep_datetimesleep", "slep_datetimewake"),
+                            labels = c("fall asleep", "wake up"))) %>%
+  ggplot(aes(x = time, fill = slep_ctry, color = sleepwake)) +
+  facet_wrap(~ slep_ctry, ncol = 3) +
+  geom_density(position = "identity", alpha = 0.5, size = 0.8) +
+  geom_vline(xintercept = paste(today() + 1, "12:00 AM") %>% 
+               as_datetime(format = "%Y-%m-%d %I:%M %p"), 
+             color = "darkblue", lty = 2) +
+  geom_vline(xintercept = paste(today() + 1, "08:00 AM") %>% 
+               as_datetime(format = "%Y-%m-%d %I:%M %p"), 
+             color = "darkred", lty = 2) +
+  # annotate("text",
+  #          x = paste(today() + 1, "1:00 AM") %>%
+  #            as_datetime(format = "%Y-%m-%d %I:%M %p"),
+  #          y = 0.00015, label = "← midnight", hjust = 0) +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  scale_color_manual(values = c("darkblue", "darkred"), guide = "none") +
+  scale_x_datetime(date_breaks = "6 hours", date_minor_breaks =  "2 hours", 
+                   date_labels = "%I:%m %p") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1),
+        legend.position = "top") +
+  labs(title = "10. When do you typically fall asleep every night and wake up every night? (`slep_ordn10`)", 
+       subtitle = "NOTE: Lots of missing data here!\nDotted lines indicate 12:00 AM (midnight) and 8:00AM; blue outline indicates time to fall asleep, and red indicates time to wake up",
+       x = "Response", y = "Density (~proportion of participants)", 
+       color = "Sleep vs. wake")
+```
+
+```{r, fig.width = 5, include = T}
+d %>%
+  ggplot(aes(x = slep_duration_num, fill = slep_ctry)) +
+  facet_wrap(~ slep_ctry, ncol = 3) +
+  geom_density(position = "identity", alpha = 0.5, size = 0.8) +
+  geom_vline(xintercept = 8, lty = 2) +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1),
+        legend.position = "top") +
+  labs(title = "Length of sleep (derived from `slep_ordn10`)", 
+       subtitle = "NOTE: Lots of missing data here!\nDotted line indicates 8 hours",
+       x = "Length of sleep (hours)", y = "Density (~proportion of participants)")
+```
+
+```{r, fig.width = 4, fig.asp = 1, include = T}
+d %>%
+  distinct(slep_subj, slep_ctry, slep_duration_num) %>%
+  filter(!is.na(slep_duration_num)) %>%
+  ggplot(aes(x = slep_ctry, y = slep_duration_num, color = slep_ctry)) +
+  geom_hline(yintercept = 8, lty = 2) +
+  geom_jitter(alpha = 0.25, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% 
+                    group_by(slep_ctry) %>%
+                    multi_boot_standard(col = "slep_duration_num") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
+                  color = "black") +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "Length of sleep (derived from `slep_ordn10`)",
+       subtitle = "NOTE: Lots of missing data here!\nError bars are 95% bootstrapped confidence intervals;\nDotted line indicates 8 hours",
+       x = "Site", y = "Length of sleep (hours)")
+```
+
+## 11. Does that vary a lot from night to night? (`slep_ordn11`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn11 = case_when(grepl(",", slep_ordn11) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn11)),
+         slep_ordn11 = factor(slep_ordn11,
+                              levels = c(1:5, "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn11) %>%
+  complete(slep_ordn11, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn11, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "11. Does that vary a lot from night to night? For example, do you regularly sleep from one\ntime (maybe 10 pm) to another time (maybe 6 am) each night, or sometimes do you sleep\nat 10, other nights midnight, some days you get up at 2 am, sometimes and 5 am,\nsometimes 7 am, at very different times? (`slep_ordn11`)",
+       subtitle = "1: No variation, 5: Very very varied",
+       x = "Response", y = "Proportion of participants")
+```
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_subj, slep_ctry, slep_ordn11) %>%
+  filter(slep_ordn11 != ".") %>%
+  ggplot(aes(x = slep_ctry, y = slep_ordn11, color = slep_ctry)) +
+  geom_jitter(alpha = 0.25, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% 
+                    group_by(slep_ctry) %>%
+                    mutate(slep_ordn11 = as.numeric(slep_ordn11)) %>%
+                    multi_boot_standard(col = "slep_ordn11") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
+                  color = "black") +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "11. Does that vary a lot from night to night? For example, do you regularly sleep from one\ntime (maybe 10 pm) to another time (maybe 6 am) each night, or sometimes do you sleep\nat 10, other nights midnight, some days you get up at 2 am, sometimes and 5 am,\nsometimes 7 am, at very different times? (`slep_ordn11`)",
+       subtitle = "Error bars are 95% bootstrapped confidence intervals",
+       x = "Site", y = "Response (1: No variation, 5: Very very varied)")
+```
+
+
+## 12a. RA judgment for hours slept (`slep_ordn12a`, derived from `slep_ordn12`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_subj, slep_ctry, slep_ordn12a) %>%
+  filter(slep_ordn12a != ".") %>%
+  filter(slep_ordn12a <= 20) %>%
+  ggplot(aes(x = slep_ctry, y = slep_ordn12a, color = slep_ctry)) +
+  geom_hline(yintercept = 8, lty = 2) +
+  geom_jitter(alpha = 0.25, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% 
+                    group_by(slep_ctry) %>%
+                    mutate(slep_ordn12a = as.numeric(slep_ordn12a)) %>%
+                    multi_boot_standard(col = "slep_ordn12a") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
+                  color = "black") +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "12a. RA judgment for hours slept (`slep_ordn12a`, derived from `slep_ordn12`)",
+       subtitle = "NOTE: Excluded one outlier (1 participant in VT who was judged to sleep > 20 hours;\nError bars are 95% bootstrapped confidence intervals; dotted line indicates 8 hours",
+       x = "Site", y = "Number of hours slept (RA judgment)")
+```
