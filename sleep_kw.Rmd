@@ -52,8 +52,9 @@ d0 <- d_raw %>%
                  slep_ordn23_Physiological, slep_ordn23_Psychological,
                  slep_ordn23_Dreams, slep_ordn23_Sound,
                  slep_ordn23_supernaturalprayer),
-            funs(factor(ifelse(. == "1" || is.na(.), "yes", "no"),
-                        levels = c("no", "yes")))) %>%
+            funs(factor(.,
+                        levels = c("\\.", "1"),
+                        labels = c("no", "yes")))) %>%
   mutate_at(vars(slep_ordn15, slep_ordn17, slep_ordn18, slep_ordn20:slep_ordn22),
             funs(recode_factor(., "0" = "never", "1" = "rarely", 
                                "2" = "sometimes", "3" = "often"))) %>%
@@ -553,3 +554,33 @@ d %>%
        subtitle = "NOTE: Excluded one outlier (1 participant in VT who was judged to sleep > 20 hours;\nError bars are 95% bootstrapped confidence intervals; dotted line indicates 8 hours",
        x = "Site", y = "Number of hours slept (RA judgment)")
 ```
+
+
+## 13. What do you think is the most important role of sleep for you? (`slep_ordn13`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_ctry, slep_subj, slep_ordn11_worldofspirits,
+           slep_ordn13_deepself, slep_ordn13_mindoff, slep_ordn13_replenish) %>%
+  gather(role, response, -c(slep_ctry, slep_subj)) %>%
+  mutate(role = recode_factor(role,
+                              "slep_ordn13_replenish" = "replenish energy",
+                              "slep_ordn13_mindoff" = "shut your mind off",
+                              "slep_ordn13_deepself" = "gain access to your deepest self",
+                              "slep_ordn11_worldofspirits" = "connect with a world of spirits"),
+         response = case_when(is.na(response) ~ "not selected", TRUE ~ response),
+         response = factor(response, levels = c("not selected", "yes"))) %>%
+  ggplot(aes(x = role, fill = slep_ctry, alpha = response)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "count", position = "fill") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  scale_alpha_manual(values = c(0.1, 1), guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "13. What do you think is the most important role of sleep for you? (`slep_ordn13`)", 
+       x = "Role", y = "Proportion of participants selecting 'yes'")
+```
+
+
+
+
+
