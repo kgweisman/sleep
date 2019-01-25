@@ -122,6 +122,15 @@ d1 <- d0 %>%
 d <- d1
 ```
 
+```{r}
+# check country codes
+d %>% 
+  distinct(slep_ctry, slep_subj) %>%
+  mutate(slep_subj_firstdig = substr(slep_subj, 1, 1)) %>%
+  count(slep_ctry, slep_subj_firstdig)
+```
+
+
 
 # Demographics
 
@@ -481,9 +490,10 @@ d %>%
                   aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
                   color = "black") +
   scale_color_brewer(palette = "Dark2", guide = "none") +
+  scale_y_continuous(trans = "log1p", breaks = seq(0, 100, 4)) +
   # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
   labs(title = "Length of sleep (derived from `slep_ordn10`)",
-       subtitle = "NOTE: Lots of missing data here!\nError bars are 95% bootstrapped confidence intervals;\nDotted line indicates 8 hours",
+       subtitle = "NOTE: Lots of missing data here!\nPlotted after applying log transformation to highlight differences between sites\nError bars are 95% bootstrapped confidence intervals;\nDotted line indicates 8 hours",
        x = "Site", y = "Length of sleep (hours)")
 ```
 
@@ -780,5 +790,166 @@ d %>%
        subtitle = "Error bars are 95% bootstrapped confidence intervals",
        x = "Site", y = "Response")
 ```
+
+
+## 19a. RA judgment for time spent in prayer (`slep_ordn19a`, derived from `slep_ordn19`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_subj, slep_ctry, slep_ordn19a) %>%
+  filter(slep_ordn19a != ".") %>%
+  ggplot(aes(x = slep_ctry, y = slep_ordn19a, color = slep_ctry)) +
+  geom_hline(yintercept = 60, lty = 2) +
+  geom_jitter(alpha = 0.25, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% 
+                    group_by(slep_ctry) %>%
+                    mutate(slep_ordn19a = as.numeric(slep_ordn19a)) %>%
+                    multi_boot_standard(col = "slep_ordn19a") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
+                  color = "black") +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  scale_y_continuous(trans = "log1p", breaks = seq(0, 1000, 60)) +
+  # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "19a. RA judgment for time spent in prayer (`slep_ordn19a`, derived from `slep_ordn19`)",
+       subtitle = "NOTE: Plotted after applying log transformation to highlight differences between sites\nError bars are 95% bootstrapped confidence intervals; dotted lines indicates 1 hour",
+       x = "Site", y = "Number of minutes spent in prayer (RA judgment)")
+```
+
+
+## 20. If you do, do you go back to sleep? (`slep_ordn20`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn20 = case_when(grepl(",", slep_ordn20) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn20)),
+         slep_ordn20 = factor(slep_ordn20,
+                              levels = c("never", "rarely", "sometimes", "often",
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn20) %>%
+  complete(slep_ordn20, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn20, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "20. If you do, do you go back to sleep? (`slep_ordn20`)",
+       x = "Response", y = "Proportion of participants")
+```
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_subj, slep_ctry, slep_ordn20) %>%
+  filter(slep_ordn20 != ".") %>%
+  ggplot(aes(x = slep_ctry, y = slep_ordn20, color = slep_ctry)) +
+  geom_jitter(alpha = 0.25, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% 
+                    group_by(slep_ctry) %>%
+                    mutate(slep_ordn20 = as.numeric(slep_ordn20)) %>%
+                    multi_boot_standard(col = "slep_ordn20") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
+                  color = "black") +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "20. If you do, do you go back to sleep? (`slep_ordn20`)",
+       subtitle = "Error bars are 95% bootstrapped confidence intervals",
+       x = "Site", y = "Response")
+```
+
+
+## 21. Do you intentionally sleep in any specific positions that have spiritual or health consequences? (`slep_ordn21`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn21 = case_when(grepl(",", slep_ordn21) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn21)),
+         slep_ordn21 = factor(slep_ordn21,
+                              levels = c("never", "rarely", "sometimes", "often",
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn21) %>%
+  complete(slep_ordn21, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn21, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "21. Do you intentionally sleep in any specific positions that have spiritual or\nhealth consequences? (`slep_ordn21`)",
+       x = "Response", y = "Proportion of participants")
+```
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_subj, slep_ctry, slep_ordn21) %>%
+  filter(slep_ordn21 != ".") %>%
+  ggplot(aes(x = slep_ctry, y = slep_ordn21, color = slep_ctry)) +
+  geom_jitter(alpha = 0.25, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% 
+                    group_by(slep_ctry) %>%
+                    mutate(slep_ordn21 = as.numeric(slep_ordn21)) %>%
+                    multi_boot_standard(col = "slep_ordn21") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
+                  color = "black") +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "21. Do you intentionally sleep in any specific positions that have spiritual or\nhealth consequences? (`slep_ordn21`)",
+       subtitle = "Error bars are 95% bootstrapped confidence intervals",
+       x = "Site", y = "Response")
+```
+
+
+## 22. Do you interact with God or with spirits in the middle of the night? (`slep_ordn22`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  mutate(slep_ordn22 = case_when(grepl(",", slep_ordn22) ~ 
+                                   "multiple answers selected",
+                                 TRUE ~ as.character(slep_ordn22)),
+         slep_ordn22 = factor(slep_ordn22,
+                              levels = c("never", "rarely", "sometimes", "often",
+                                         "multiple answers selected"))) %>%
+  count(slep_ctry, slep_ordn22) %>%
+  complete(slep_ordn22, nesting(slep_ctry), fill = list(n = 0)) %>%
+  group_by(slep_ctry) %>%
+  mutate(prop = n/sum(n, na.rm = T)) %>%
+  ggplot(aes(x = slep_ordn22, y = prop, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "22. Do you interact with God or with spirits in the middle of the night? (`slep_ordn22`)",
+       x = "Response", y = "Proportion of participants")
+```
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_subj, slep_ctry, slep_ordn22) %>%
+  filter(slep_ordn22 != ".") %>%
+  ggplot(aes(x = slep_ctry, y = slep_ordn22, color = slep_ctry)) +
+  geom_jitter(alpha = 0.25, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% 
+                    group_by(slep_ctry) %>%
+                    mutate(slep_ordn22 = as.numeric(slep_ordn22)) %>%
+                    multi_boot_standard(col = "slep_ordn22") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
+                  color = "black") +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "22. Do you interact with God or with spirits in the middle of the night? (`slep_ordn22`)",
+       subtitle = "Error bars are 95% bootstrapped confidence intervals",
+       x = "Site", y = "Response")
+```
+
+
+
+
 
 
