@@ -58,7 +58,7 @@ d0 <- d_raw %>%
   mutate_at(vars(slep_ordn15, slep_ordn17, slep_ordn18, slep_ordn20:slep_ordn22),
             funs(recode_factor(., "0" = "never", "1" = "rarely", 
                                "2" = "sometimes", "3" = "often"))) %>%
-  mutate_at(vars(starts_with("slep_edge")),
+  mutate_at(vars(starts_with("slep_edge"), -slep_edge_total),
             funs(recode_factor(., "0" = "never", "1" = "rarely", 
                                "2" = "occasionally", "3" = "frequently"))) %>%
   mutate(slep_ordn01 = recode_factor(slep_ordn01, 
@@ -167,7 +167,7 @@ d0 %>%
 
 
 <P style="page-break-before: always">
-# Individual questions
+# Questions 1-23
 
 ## 1. Where do you usually sleep at night? (`slep_ordn01`)
 
@@ -949,7 +949,147 @@ d %>%
 ```
 
 
+## 23.  What wakes you up most at night? (`slep_ordn23`)
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_ctry, slep_subj, slep_ordn23_Physiological, 
+           slep_ordn23_Psychological, slep_ordn23_Dreams,
+           slep_ordn23_Sound, slep_ordn23_supernaturalprayer) %>%
+  gather(role, response, -c(slep_ctry, slep_subj)) %>%
+  mutate(role = recode_factor(role,
+                              "slep_ordn23_Physiological" = "physiological",
+                              "slep_ordn23_Psychological" = "psychological",
+                              "slep_ordn23_Dreams" = "dreams",
+                              "slep_ordn23_Sound" = "sounds",
+                              "slep_ordn23_supernaturalprayer" = "supernatural"),
+         response = case_when(is.na(response) ~ "not selected", TRUE ~ response),
+         response = factor(response, levels = c("not selected", "yes"))) %>%
+  ggplot(aes(x = role, fill = slep_ctry, alpha = response)) +
+  facet_grid(cols = vars(slep_ctry)) +
+  geom_bar(stat = "count", position = "fill") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  scale_alpha_manual(values = c(0.1, 1), guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "23. What do you think is the most important role of sleep for you? (`slep_ordn23`)", 
+       subtitle = "NOTE: Nikki's codes;\n- Physiological: e.g., body needs, sensory experiences, no reason\n- Psychological: e.g., emotions, plans, thoughts\n- Dreams: e.g., dreams, nightmares, feeling of falling)\n- Sounds: e.g., alarm, people, animals\n- Supernatural: e.g., god, spirit, prayer\nNOTE: many answers not translated!",
+       x = "Role", y = "Proportion of participants selecting 'yes'")
+```
 
 
+# "Edge" survey
+
+## Total score (`slep_edge_total`)
+
+```{r, fig.width = 5, include = T}
+d %>%
+  ggplot(aes(x = slep_edge_total, fill = slep_ctry)) +
+  facet_wrap(~ slep_ctry, ncol = 3) +
+  geom_density(position = "identity", alpha = 0.5, size = 0.8) +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1),
+        legend.position = "top") +
+  labs(title = "Edge total score (`slep_edge_total`)", 
+       x = "Edge total score (range: 0-60)", 
+       y = "Density (~proportion of participants)")
+```
+
+```{r, fig.width = 4, include = T}
+d %>%
+  distinct(slep_subj, slep_ctry, slep_edge_total) %>%
+  filter(!is.na(slep_edge_total)) %>%
+  ggplot(aes(x = slep_ctry, y = slep_edge_total, color = slep_ctry)) +
+  geom_jitter(alpha = 0.25, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% 
+                    group_by(slep_ctry) %>%
+                    multi_boot_standard(col = "slep_edge_total") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper), 
+                  color = "black") +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  scale_y_continuous(breaks = seq(0, 60, 10)) +
+  # theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "Edge total score (`slep_edge_total`)",
+       subtitle = "Error bars are 95% bootstrapped confidence intervals",
+       x = "Site", y = "Edge total score (range: 0-60)")
+```
+
+
+## Individual questions
+
+The "edge" survey consisted of 20 questions, labeled as follows (order may have varied across versions?):
+
+- `slep_edge01`: 11. I've felt an evil presence in the room, but could not see, hear, touch or smell anyone there.
+- `slep_edge02`: 12. I've heard someone calling my name
+- `slep_edge03`: 13. I've seen a blurry human figure in the room.
+- `slep_edge04`: 14.I've had the sense of an invisible presence watching me.
+- `slep_edge05`: 15. I've heard the voice of a person I could not identify.
+- `slep_edge06`: 16. I've heard human speech which spoke in a garbled, unclear way.
+- `slep_edge07`: 17. I've seen the image of a face.
+- `slep_edge08`: 18. I've heard the voice of someone familiar to me.
+- `slep_edge09`: 19. I've see things or figures floating in my room.
+- `slep_edge10`: 20. I've felt the presence of an intruder in my bedroom, though I did not actually see, hear, touch or smell anyone
+- `slep_edge11`: 1. I've clearly seen people in my room
+- `slep_edge12`: 2. I've heard non-speech sound, such as laughter, music or other noises
+- `slep_edge13`: 3. I've seen things in my room other than people
+- `slep_edge14`: 4. I've had the feeling of a presence in the room which I felt was aware of me too, but I could not actually see, hear, touch or smell them
+- `slep_edge15`: 5. I've heard God (or a spirit) speak
+- `slep_edge16`: 6. I've heard God (or a spirit) singing to me.
+- `slep_edge17`: 7. I've seen an angel (or a spirit)
+- `slep_edge18`: 8. I've seen a ghost
+- `slep_edge19`: 9. I've felt the presence of God (or a spirit)
+- `slep_edge20`: 10. I have woken up and been unable to move.
+
+```{r}
+edge_key <- read_excel("./edge_key.xlsx")
+```
+
+```{r, fig.width = 6, include = T}
+d %>%
+  select(slep_subj, slep_ctry, contains("edge"), -contains("total")) %>%
+  distinct() %>%
+  gather(question, response, contains("edge")) %>%
+  mutate(response = factor(response,
+                           levels = c("never", "rarely", 
+                                      "occasionally", "frequently"))) %>%
+  filter(!is.na(response)) %>%
+  ggplot(aes(x = slep_ctry, y = response, color = slep_ctry)) +
+  facet_wrap(~ question, ncol = 7) +
+  geom_jitter(alpha = 0.05, width = 0.25, height = 0.25) +
+  geom_pointrange(data = . %>% group_by(slep_ctry, question) %>%
+                    mutate(response = as.numeric(response)) %>%
+                    multi_boot_standard(col = "response") %>%
+                    ungroup(),
+                  aes(y = mean, ymin = ci_lower, ymax = ci_upper),
+                  color = "black", fatten = 0.5) +
+  geom_text(data = edge_key, 
+            aes(x = NULL, y = NULL, color = NULL,
+                label = str_wrap(question_text, width = 29)),
+            x = 0.75, y = 5.5, color = "black", 
+            hjust = 0, vjust = 1, size = 2.5, lineheight = 0.8) +
+  scale_color_brewer(palette = "Dark2", guide = "none") +
+  scale_y_discrete(expand = expand_scale(add = c(0.6, 1.75))) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "Responses to 'edge' questions (`slep_edge01`-`slep_edge20`)",
+       subtitle = "Error bars are 95% bootstrapped confidence intervals",
+       x = "Site", y = "Response")
+```
+
+```{r, fig.width = 4, fig.asp = 4, include = T}
+d %>%
+  select(slep_subj, slep_ctry, contains("edge"), -contains("total")) %>%
+  distinct() %>%
+  gather(question, response, contains("edge")) %>%
+  mutate(response = factor(response,
+                           levels = c("never", "rarely", 
+                                      "occasionally", "frequently"))) %>%
+  ggplot(aes(x = response, fill = slep_ctry)) +
+  facet_grid(cols = vars(slep_ctry), rows = vars(question)) +
+  geom_bar(stat = "count") +
+  scale_fill_brewer(palette = "Dark2", guide = "none") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1)) +
+  labs(title = "Distributions of responses to 'edge' questions (`slep_edge01`-`slep_edge20`)",
+       x = "Response", y = "Proportion of participants")
+```
 
 
