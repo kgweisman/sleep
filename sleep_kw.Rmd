@@ -9,7 +9,7 @@ output:
 always_allow_html: yes
 ---
 
-This is Kara's first pass at looking at the Sleep data (with data from 2019-01-24).
+This is Kara's first pass at looking at the Sleep data (with data from 2019-01-24). (Note: PDF printed portrait, 80% zoom, default margins.)
 
 ```{r global_options, include = F}
 knitr::opts_chunk$set(fig.width = 4, fig.asp = 0.67,
@@ -224,6 +224,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 3. Does anyone else sleep in the same bed (or mat, hammock, etc.) with you? (`slep_ordn03`)
 
 ```{r, fig.width = 4, include = T}
@@ -275,6 +276,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 5. Besides anyone who shares the bed with you, does someone else sleep in the same room with you? (`slep_ordn05`)
 
 ```{r, fig.width = 4, include = T}
@@ -326,6 +328,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 7. What does your family use to see at night? (`slep_ordn07`)
 
 ```{r, fig.width = 5, fig.asp = 0.5, include = T}
@@ -379,6 +382,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 9. If so, how often do you rest or nap? (`slep_ordn09`)
 
 ```{r, fig.width = 4, include = T}
@@ -425,6 +429,7 @@ d %>%
        x = "Site", y = "Response")
 ```
 
+<P style="page-break-before: always">
 ## 10. When do you typically fall asleep every night and wake up every night? (`slep_ordn10`)
 
 ```{r, fig.width = 5, include = T}
@@ -498,6 +503,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 11. Does that vary a lot from night to night? (`slep_ordn11`)
 
 ```{r, fig.width = 4, include = T}
@@ -542,6 +548,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 12a. RA judgment for hours slept (`slep_ordn12a`, derived from `slep_ordn12`)
 
 ```{r, fig.width = 4, include = T}
@@ -636,6 +643,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 15. Are dreams an important source of spiritual insight for you? (`slep_ordn15`)
 
 ```{r, fig.width = 4, include = T}
@@ -680,6 +688,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 16. Do you regard sleep as a doorway into another way of being? (`slep_ordn16`)
 
 ```{r, fig.width = 4, include = T}
@@ -704,6 +713,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 17. Do special spiritual things happen during the night for you? (`slep_ordn17`)
 
 ```{r, fig.width = 4, include = T}
@@ -748,6 +758,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 18. Do you wake up to pray in the middle of the night? (`slep_ordn18`)
 
 ```{r, fig.width = 4, include = T}
@@ -792,6 +803,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 19a. RA judgment for time spent in prayer (`slep_ordn19a`, derived from `slep_ordn19`)
 
 ```{r, fig.width = 4, include = T}
@@ -817,6 +829,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 20. If you do, do you go back to sleep? (`slep_ordn20`)
 
 ```{r, fig.width = 4, include = T}
@@ -861,6 +874,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 21. Do you intentionally sleep in any specific positions that have spiritual or health consequences? (`slep_ordn21`)
 
 ```{r, fig.width = 4, include = T}
@@ -905,6 +919,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 22. Do you interact with God or with spirits in the middle of the night? (`slep_ordn22`)
 
 ```{r, fig.width = 4, include = T}
@@ -949,6 +964,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## 23.  What wakes you up most at night? (`slep_ordn23`)
 
 ```{r, fig.width = 4, include = T}
@@ -977,6 +993,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 # "Edge" survey
 
 ## Total score (`slep_edge_total`)
@@ -1015,6 +1032,7 @@ d %>%
 ```
 
 
+<P style="page-break-before: always">
 ## Individual questions
 
 The "edge" survey consisted of 20 questions, labeled as follows (order may have varied across versions?):
@@ -1044,8 +1062,8 @@ The "edge" survey consisted of 20 questions, labeled as follows (order may have 
 edge_key <- read_excel("./edge_key.xlsx")
 ```
 
-```{r, fig.width = 6, include = T}
-d %>%
+```{r}
+edge_plot <- d %>%
   select(slep_subj, slep_ctry, contains("edge"), -contains("total")) %>%
   distinct() %>%
   gather(question, response, contains("edge")) %>%
@@ -1054,7 +1072,6 @@ d %>%
                                       "occasionally", "frequently"))) %>%
   filter(!is.na(response)) %>%
   ggplot(aes(x = slep_ctry, y = response, color = slep_ctry)) +
-  facet_wrap(~ question, ncol = 7) +
   geom_jitter(alpha = 0.05, width = 0.25, height = 0.25) +
   geom_pointrange(data = . %>% group_by(slep_ctry, question) %>%
                     mutate(response = as.numeric(response)) %>%
@@ -1075,6 +1092,20 @@ d %>%
        x = "Site", y = "Response")
 ```
 
+Note: this version of the plot is probably better for slides, but I've replotted it on the following page for easy of reading in this PDF.
+
+```{r, fig.width = 6, include = T}
+# better for slides
+edge_plot + facet_wrap(~ question, ncol = 7)
+```
+
+<P style="page-break-before: always">
+```{r, fig.width = 3.5, fig.asp = 2.625, include = T}
+# optimized for PDF in portrait
+edge_plot + facet_wrap(~ question, ncol = 3)
+```
+
+<P style="page-break-before: always">
 ```{r, fig.width = 4, fig.asp = 4, include = T}
 d %>%
   select(slep_subj, slep_ctry, contains("edge"), -contains("total")) %>%
